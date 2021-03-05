@@ -1,0 +1,12 @@
+{
+    "name": "semieway/flag-rest-api",
+    "type": "project",
+    "description": "",
+    "authors": [
+        {
+            "name": "Alex Sirotin",
+            "email": "semieway@gmail.com"
+        }
+    ],
+    "require": {}
+}
