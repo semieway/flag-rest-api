@@ -10,7 +10,9 @@
     ],
     "require": {
         "php": ">=7.4",
-        "ext-pgsql": "*"
+        "ext-pgsql": "*",
+        "ext-json": "*",
+        "ext-pdo": "*"
     },
     "autoload": {
         "psr-4": {
