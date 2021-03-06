@@ -4,22 +4,45 @@
 namespace App;
 
 
+use PDO;
+
 class Database
 {
 
-    private $connection;
+    /**
+     * Database connection.
+     * @var PDO
+     */
+    private PDO $connection;
+
+    /**
+     * ID not found exception.
+     * @var \Exception
+     */
+    private \Exception $idException;
 
     public function __construct()
     {
-        $this->connection = pg_connect(getenv('DATABASE_URL'));
+        $parts = parse_url(getenv('DATABASE_URL'));
+        $this->connection = new PDO("pgsql:host={$parts['host']};port={$parts['port']};dbname={$parts['dbname']}", $parts['user'], $parts['password'], [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+
+        $this->idException = new \Exception('Invalid identifier: id is invalid or not found.');
     }
 
     /**
-     * @return resource|false
+     * @return PDO
      */
-    public function getConnection()
+    public function getConnection(): PDO
     {
         return $this->connection;
+    }
+
+    /**
+     * @return \Exception
+     */
+    public function getIdException(): \Exception
+    {
+        return $this->idException;
     }
 
     /**
@@ -27,6 +50,7 @@ class Database
      *
      * @param int $id
      * @return array|false
+     * @throws \Exception
      */
     public function getMovie(int $id)
     {
@@ -40,49 +64,104 @@ class Database
 	        m.runtime
         FROM movies AS m
         INNER JOIN genres AS g ON m.genre_id = g.id
-        WHERE m.id = $1
+        WHERE m.id = :id
         ';
 
-        pg_prepare($this->getConnection(), 'get_movie', $query);
-        $result = pg_execute($this->getConnection(), 'get_movie', [$id]);
+        if (!$this->isMovieExist($id)) {
+            throw $this->getIdException();
+        }
 
-        return pg_fetch_row($result, 0, PGSQL_ASSOC);
+        $stmt = $this->getConnection()->prepare($query);
+        $stmt->execute(['id' => $id]);
+        $movie = $stmt->fetch();
+
+        $actors = $this->getMovieActors($id);
+        $movie['actors'] = ($actors) ? $actors : [];
+
+        return $movie;
     }
 
     /**
      * Removes movie by id.
      *
      * @param int $id
-     * @return array|false
+     * @return bool
+     * @throws \Exception
      */
     public function removeMovie(int $id)
     {
-        return pg_delete($this->getConnection(), 'movies', ['id' => $id]);
+        if ($this->isMovieExist($id)) {
+            $query = 'DELETE FROM movies WHERE id = :id';
+            $stmt = $this->getConnection()->prepare($query);
+            $stmt->execute(['id' => $id]);
+
+            return boolval($stmt->fetch());
+        }
+
+        throw $this->getIdException();
     }
 
-
     /**
-     * Add movie to database.
+     * Adds movie to database.
      *
      * @param array $data
-     * @return bool
+     * @return int|bool
      */
     public function addMovie(array $data)
     {
-        $result = pg_insert($this->getConnection(), 'movies', $data);
-        return ($result) ? true : false;
+        $query = '
+            INSERT INTO movies AS m (m.title, m.year, m.genre_id, m.overview, m.runtime)
+            VALUES(
+                :title,
+                :year,  
+                (SELECT id FROM genres WHERE name = :genre),
+                :overview,
+                :runtime  
+        )';
+        $stmt = $this->getConnection()->prepare($query);
+        $stmt->execute([
+            'title' => $data['title'],
+            'year' => $data['year'],
+            'genre' => $data['genre'],
+            'overview' => $data['overview'],
+            'runtime' => $data['runtime']
+        ]);
+
+        return ($stmt->fetch()) ? $this->getConnection()->lastInsertId() : false;
     }
 
-
     /**
-     * Update movie in database.
+     * Replaces movie in database.
      *
      * @param array $data
-     * @return bool
+     * @return array|bool
      */
-    public function updateMovie(array $data)
+    public function replaceMovie(array $data): bool
     {
-        return pg_update($this->getConnection(), 'movies', $data, ['id' => $data['id']]);
+        if (!$this->isMovieExist($data['id'])) {
+            return false;
+        }
+
+        $query = '
+            UPDATE movies SET
+                title = :title,
+                year = :year,
+                genre_id = (SELECT id FROM genres WHERE name = :genre),
+                overview = :overview,
+                runtime = :runtime
+            WHERE id = :id
+        ';
+        $stmt = $this->getConnection()->prepare($query);
+        $stmt->execute([
+            'id' => $data['id'],
+            'title' => $data['title'],
+            'year' => $data['year'],
+            'genre' => $data['genre'],
+            'overview' => $data['overview'],
+            'runtime' => $data['runtime']
+        ]);
+
+        return $stmt->fetch();
     }
 
     /**
@@ -94,15 +173,15 @@ class Database
     public function getMovies(array $options = [])
     {
         $query = '
-        SELECT
-	        m.id,
-	        m.title,
-	        m.year,
-	        g.name AS genre,
-	        m.overview,
-	        m.runtime
-        FROM movies AS m
-        INNER JOIN genres AS g ON m.genre_id = g.id 
+            SELECT
+	            m.id,
+	            m.title,
+	            m.year,
+	            g.name AS genre,
+	            m.overview,
+	            m.runtime
+            FROM movies AS m
+            INNER JOIN genres AS g ON m.genre_id = g.id 
         ';
         $parameters = [];
 
@@ -128,7 +207,7 @@ class Database
         $query .= 'GROUP BY m.id, g.name ';
 
         $order = $options['order'];
-        if ($order['title']) {
+        if (isset($order['title'])) {
             if ($order['title'] == 'desc') {
                 $query .= 'ORDER BY m.title DESC';
             } else {
@@ -139,13 +218,28 @@ class Database
         }
 
         // Execute query.
-        pg_prepare($this->getConnection(), 'get_movies', $query);
-        $result = pg_execute($this->getConnection(), 'get_movies', $parameters);
-        $movies = pg_fetch_all($result, PGSQL_ASSOC);
+        $stmt = $this->getConnection()->prepare($query);
+        $stmt->execute($parameters);
+        $movies = $stmt->fetchAll();
 
-        // Get actors for every fetched movie.
+        // Get actors for every movie.
         foreach ($movies as &$movie) {
-            $query = '
+            $actors = $this->getMovieActors($movie['id']);
+            $movie['actors'] = ($actors) ? $actors : [];
+        }
+
+        return $movies;
+    }
+
+    /**
+     * Gets movie actors.
+     *
+     * @param int $id
+     * @return array
+     */
+    public function getMovieActors(int $id): array
+    {
+        $query = '
             SELECT
                 a.id,
                 a.first_name,
@@ -153,16 +247,27 @@ class Database
                 a.birth_date
             FROM actors AS a 
             INNER JOIN movie_actors AS m_a ON a.id = m_a.actor_id
-            WHERE m_a.movie_id = $1
+            WHERE m_a.movie_id = :id
             ';
+        $stmt = $this->getConnection()->prepare($query);
+        $stmt->execute(['id' => $id]);
 
-            pg_prepare($this->getConnection(), 'get_actors', $query);
-            $result = pg_execute($this->getConnection(), 'get_actors', [$movie['id']]);
-            $actors = pg_fetch_all($result, PGSQL_ASSOC);
-            $movie['actors'] = $actors;
-        }
+        return $stmt->fetchAll();
+    }
 
-        return $movies;
+    /**
+     * Checks if movie exist in database.
+     *
+     * @param int $id
+     * @return bool
+     */
+    public function isMovieExist(int $id): bool
+    {
+        $query = 'SELECT id FROM movies WHERE id = :id';
+        $stmt = $this->getConnection()->prepare($query);
+        $stmt->execute(['id' => $id]);
+
+        return boolval($stmt->fetch());
     }
 
 }
