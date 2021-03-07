@@ -34,6 +34,7 @@ class Database
             getenv('DB_USER'),
             getenv('DB_PASS'),
             [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+
         $this->idException = new \Exception('Invalid identifier: id is invalid or not found.');
         $this->internalException = new \Exception('Internal error. Something went wrong.');
     }
@@ -160,37 +161,37 @@ class Database
     /**
      * Updates movie in database.
      *
+     * @param int $id
      * @param array $data
      * @return array|bool
      * @throws \Exception
      */
-    public function updateMovie(array $data): bool
+    public function updateMovie(int $id, array $data): bool
     {
-        if (!$this->isMovieExist($data['id'])) {
+        if (!$this->isMovieExist($id)) {
             throw $this->getIdException();
         }
 
-        $query = '
-            UPDATE movies SET
-                title = :title,
-                year = :year,
-                genre_id = (SELECT id FROM genres WHERE name = :genre),
-                overview = :overview,
-                runtime = :runtime
-            WHERE id = :id
-        ';
+        $values = array_map(function($key) {
+            $field = $key;
+            $value = ':'.$key;
+            if ($key == 'genre') {
+                $field = 'genre_id';
+                $value = '(SELECT id FROM genres WHERE name = :genre)';
+            }
+            return sprintf('%s = %s', $field, $value);
+            },
+            array_keys($data));
+
+        $query = 'UPDATE movies SET '
+            . implode(', ', $values)
+            . ' WHERE id = :id';
         $stmt = $this->getConnection()->prepare($query);
-        $success = $stmt->execute([
-            'id' => $data['id'],
-            'title' => $data['title'],
-            'year' => $data['year'],
-            'genre' => $data['genre'],
-            'overview' => $data['overview'],
-            'runtime' => $data['runtime']
-        ]);
+        $data['id'] = $id;
+        $success = $stmt->execute($data);
 
         if ($success) {
-            return $this->getMovie($data['id']);
+            return true;
         }
         throw $this->getInternalException();
     }

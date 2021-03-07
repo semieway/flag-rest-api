@@ -250,7 +250,7 @@ class Api
         $isElement = preg_match('/^\/api\/movie\/\d/', $this->getPath());
 
         if ($isElement) {
-            preg_match('/^\/api\/movie\/(\d)/', $this->getPath(), $matches);
+            preg_match('/^\/api\/movie\/(\d+)/', $this->getPath(), $matches);
             $id = $matches[1];
         }
         $pathException = new \Exception('Invalid request path.');
@@ -275,14 +275,9 @@ class Api
                 break;
 
             case 'PUT':
-                if ($isElement && $movie = $this->getDb()->updateMovie($this->getRequestData())) {
-                    $response = $movie;
-                }
-                break;
-
             case 'PATCH':
-                if ($isElement && $movie = $this->getDb()->updateMovie($this->getRequestData())) {
-                    $response = $movie;
+                if ($isElement && $this->getDb()->updateMovie($id, $this->getRequestData())) {
+                    $response = $this->getDb()->getMovie($id);
                 }
                 break;
 
