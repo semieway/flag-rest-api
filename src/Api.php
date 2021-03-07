@@ -31,10 +31,10 @@ class Api
     private Database $db;
 
     /**
-     * POST data array.
+     * Request data array.
      * @var array
      */
-    private array $postData;
+    private array $requestData;
 
     /**
      * Success status indicator.
@@ -60,9 +60,9 @@ class Api
      * @param string $requestUri
      * @param string $method
      * @param Database $db
-     * @param array $post
+     * @param array $requestData
      */
-    public function __construct(string $requestUri, string $method, Database $db, array $post)
+    public function __construct(string $requestUri, string $method, Database $db, array $requestData = [])
     {
         $url = parse_url($requestUri);
 
@@ -70,7 +70,7 @@ class Api
         $this->setQuery($url['query'] ?? '');
         $this->setMethod($method);
         $this->setDb($db);
-        $this->setPostData($post);
+        $this->setRequestData($requestData);
     }
 
     /**
@@ -140,17 +140,17 @@ class Api
     /**
      * @return array
      */
-    public function getPostData(): array
+    public function getRequestData(): array
     {
-        return $this->postData;
+        return $this->requestData;
     }
 
     /**
-     * @param array $postData
+     * @param array $requestData
      */
-    public function setPostData(array $postData): void
+    public function setRequestData(array $requestData): void
     {
-        $this->postData = $postData;
+        $this->requestData = $requestData;
     }
 
     /**
@@ -269,19 +269,19 @@ class Api
                 break;
 
             case 'POST':
-                if ($isCollection && $id = $this->getDb()->addMovie($this->getPostData())) {
+                if ($isCollection && $id = $this->getDb()->addMovie($this->getRequestData())) {
                     $response = $this->getDb()->getMovie($id);
                 }
                 break;
 
             case 'PUT':
-                if ($isElement && $movie = $this->getDb()->updateMovie($this->getPostData())) {
+                if ($isElement && $movie = $this->getDb()->updateMovie($this->getRequestData())) {
                     $response = $movie;
                 }
                 break;
 
             case 'PATCH':
-                if ($isElement && $movie = $this->getDb()->updateMovie($this->getPostData())) {
+                if ($isElement && $movie = $this->getDb()->updateMovie($this->getRequestData())) {
                     $response = $movie;
                 }
                 break;
