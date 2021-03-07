@@ -218,7 +218,7 @@ class Api
      *
      * @return string
      */
-    public function getJsonResponse()
+    public function getJsonResponse(): string
     {
         return json_encode($this->getResponse());
     }
@@ -228,11 +228,20 @@ class Api
      *
      * @return array
      */
-    public function getResponse()
+    public function getResponse(): array
     {
         $response = [];
+        $body = [];
+
+        try {
+            $body = $this->generateResponse();
+        } catch (\Exception $e) {
+            $this->setSuccess(false);
+            $this->setStatusCode($e->getCode());
+            $this->setStatusMessage($e->getMessage());
+        }
         $response['status'] = $this->getResponseStatus();
-        $response['response'] = $this->generateResponse();
+        $response['response'] = $body;
 
         return $response;
     }
@@ -247,13 +256,15 @@ class Api
     {
         $response = [];
         $isCollection = preg_match('/^\/api\/movies/', $this->getPath());
-        $isElement = preg_match('/^\/api\/movie\/\d/', $this->getPath());
+        $isElement = preg_match('/^\/api\/movie\/\d+/', $this->getPath());
 
+        if (!$isCollection && !$isElement) {
+            throw new \Exception('Invalid request path.', 501);
+        }
         if ($isElement) {
             preg_match('/^\/api\/movie\/(\d+)/', $this->getPath(), $matches);
             $id = $matches[1];
         }
-        $pathException = new \Exception('Invalid request path.');
 
         switch($this->getMethod()) {
             case 'GET':
@@ -276,7 +287,10 @@ class Api
 
             case 'PUT':
             case 'PATCH':
-                if ($isElement && $this->getDb()->updateMovie($id, $this->getRequestData())) {
+                if ($isElement
+                    && $this->isDataValid($this->getRequestData())
+                    && $this->getDb()->updateMovie($id, $this->getRequestData())
+                ) {
                     $response = $this->getDb()->getMovie($id);
                 }
                 break;
@@ -289,6 +303,25 @@ class Api
         }
 
         return $response;
+    }
+
+    /**
+     * Checks if posted data is valid.
+     *
+     * @param array $data
+     * @return bool
+     * @throws \Exception
+     */
+    public function isDataValid(array $data):bool
+    {
+        if (isset($data['title'])
+            && isset($data['year'])
+            && is_string($data['title'])
+            && is_numeric($data['year'])
+        ) {
+            return true;
+        }
+        throw new \Exception('Invalid request data.', 422);
     }
 
 }

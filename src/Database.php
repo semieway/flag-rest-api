@@ -35,8 +35,8 @@ class Database
             getenv('DB_PASS'),
             [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 
-        $this->idException = new \Exception('Invalid identifier: id is invalid or not found.');
-        $this->internalException = new \Exception('Internal error. Something went wrong.');
+        $this->idException = new \Exception('Invalid identifier: id is invalid or not found.', 404);
+        $this->internalException = new \Exception('Internal error. Something went wrong.', 500);
     }
 
     /**
