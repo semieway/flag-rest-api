@@ -4,8 +4,6 @@
 namespace App;
 
 
-use mysql_xdevapi\Exception;
-
 class Api
 {
     /**
@@ -247,7 +245,7 @@ class Api
      */
     public function generateResponse(): array
     {
-        $response['response'] = '';
+        $response = [];
         $isCollection = preg_match('/^\/api\/movies/', $this->getPath());
         $isElement = preg_match('/^\/api\/movie\/\d/', $this->getPath());
 
@@ -263,34 +261,34 @@ class Api
                     $query = [];
                     parse_str($this->getQuery(), $query);
 
-                    $response['response'] = $this->getDb()->getMovies($query);
+                    $response = $this->getDb()->getMovies($query);
                 }
                 elseif ($isElement) {
-                    $response['response'] = $this->getDb()->getMovie($id);
+                    $response = $this->getDb()->getMovie($id);
                 }
                 break;
 
             case 'POST':
                 if ($isCollection && $id = $this->getDb()->addMovie($this->getPostData())) {
-                    $response['response'] = $this->getDb()->getMovie($id);
+                    $response = $this->getDb()->getMovie($id);
                 }
                 break;
 
             case 'PUT':
                 if ($isElement && $movie = $this->getDb()->updateMovie($this->getPostData())) {
-                    $response['response'] = $movie;
+                    $response = $movie;
                 }
                 break;
 
             case 'PATCH':
                 if ($isElement && $movie = $this->getDb()->updateMovie($this->getPostData())) {
-                    $response['response'] = $movie;
+                    $response = $movie;
                 }
                 break;
 
             case 'DELETE':
                 if ($isElement && $this->getDb()->removeMovie($id)) {
-                    $response['response'] = $this->getDb()->getMovie($id);
+                    $response = $this->getDb()->getMovie($id);
                 }
                 break;
         }
