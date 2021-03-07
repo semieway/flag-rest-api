@@ -5,7 +5,7 @@
 -- Dumped from database version 13.2 (Ubuntu 13.2-1.pgdg20.04+1)
 -- Dumped by pg_dump version 13.2 (Ubuntu 13.2-1.pgdg20.04+1)
 
--- Started on 2021-03-05 16:31:48 +05
+-- Started on 2021-03-07 14:21:15 +05
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -50,7 +50,7 @@ CREATE SEQUENCE public.actors_id_seq
 
 
 --
--- TOC entry 4004 (class 0 OID 0)
+-- TOC entry 4006 (class 0 OID 0)
 -- Dependencies: 204
 -- Name: actors_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -84,7 +84,7 @@ CREATE SEQUENCE public.genre_id_seq
 
 
 --
--- TOC entry 4005 (class 0 OID 0)
+-- TOC entry 4007 (class 0 OID 0)
 -- Dependencies: 200
 -- Name: genre_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -133,7 +133,7 @@ CREATE SEQUENCE public.movies_id_seq
 
 
 --
--- TOC entry 4006 (class 0 OID 0)
+-- TOC entry 4008 (class 0 OID 0)
 -- Dependencies: 202
 -- Name: movies_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
@@ -210,6 +210,15 @@ CREATE INDEX title ON public.movies USING btree (title varchar_ops);
 
 
 --
+-- TOC entry 3870 (class 2606 OID 2104347)
+-- Name: movie_actors actor_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.movie_actors
+    ADD CONSTRAINT actor_id FOREIGN KEY (actor_id) REFERENCES public.actors(id) NOT VALID;
+
+
+--
 -- TOC entry 3868 (class 2606 OID 1682246)
 -- Name: movies genre_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
@@ -218,7 +227,16 @@ ALTER TABLE ONLY public.movies
     ADD CONSTRAINT genre_id FOREIGN KEY (genre_id) REFERENCES public.genres(id) NOT VALID;
 
 
--- Completed on 2021-03-05 16:32:00 +05
+--
+-- TOC entry 3869 (class 2606 OID 2104342)
+-- Name: movie_actors movie_id; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.movie_actors
+    ADD CONSTRAINT movie_id FOREIGN KEY (movie_id) REFERENCES public.movies(id) NOT VALID;
+
+
+-- Completed on 2021-03-07 14:21:29 +05
 
 --
 -- PostgreSQL database dump complete
