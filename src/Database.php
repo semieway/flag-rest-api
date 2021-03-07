@@ -81,7 +81,7 @@ class Database
 	        m.overview,
 	        m.runtime
         FROM movies AS m
-        INNER JOIN genres AS g ON m.genre_id = g.id
+        LEFT JOIN genres AS g ON m.genre_id = g.id
         WHERE m.id = :id
         ';
 
@@ -214,7 +214,7 @@ class Database
 	            m.overview,
 	            m.runtime
             FROM movies AS m
-            INNER JOIN genres AS g ON m.genre_id = g.id 
+            LEFT JOIN genres AS g ON m.genre_id = g.id 
         ';
         $parameters = [];
 
