@@ -282,11 +282,16 @@ class Api
                 break;
 
             case 'PUT':
-            case 'PATCH':
                 if ($isElement
                     && $this->isDataValid($this->getRequestData())
-                    && $this->getDb()->updateMovie($id, $this->getRequestData())
+                    && $this->getDb()->updateMovie($id, $this->getRequestData(), false)
                 ) {
+                    return $this->getDb()->getMovie($id);
+                }
+                break;
+
+            case 'PATCH':
+                if ($isElement && $this->getDb()->updateMovie($id, $this->getRequestData())) {
                     return $this->getDb()->getMovie($id);
                 }
                 break;

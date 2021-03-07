@@ -36,7 +36,7 @@ class Database
             [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 
         $this->idException = new \Exception('Invalid identifier: id is invalid or not found.', 404);
-        $this->internalException = new \Exception('Internal error. Something went wrong.', 500);
+        $this->internalException = new \Exception('Internal error, something went wrong. Please check your request parameters.', 500);
     }
 
     /**
@@ -163,13 +163,20 @@ class Database
      *
      * @param int $id
      * @param array $data
+     * @param bool $keepData
      * @return array|bool
      * @throws \Exception
      */
-    public function updateMovie(int $id, array $data): bool
+    public function updateMovie(int $id, array $data, bool $keepData = true): bool
     {
         if (!$this->isMovieExist($id)) {
             throw $this->getIdException();
+        }
+
+        if (!$keepData) {
+            $movie = $this->getMovie($id);
+            $data = array_merge(array_fill_keys(array_keys($movie), null), $data);
+            unset($data['id'], $data['actors']);
         }
 
         $values = array_map(function($key) {
@@ -186,6 +193,7 @@ class Database
         $query = 'UPDATE movies SET '
             . implode(', ', $values)
             . ' WHERE id = :id';
+        var_dump($query);
         $stmt = $this->getConnection()->prepare($query);
         $data['id'] = $id;
         $success = $stmt->execute($data);
