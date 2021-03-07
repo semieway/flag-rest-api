@@ -254,15 +254,11 @@ class Api
      */
     public function generateResponse(): array
     {
-        $response = [];
-        $isCollection = preg_match('/^\/api\/movies/', $this->getPath());
-        $isElement = preg_match('/^\/api\/movie\/\d+/', $this->getPath());
+        $isCollection = preg_match('/^\/api\/movies$/', $this->getPath());
+        $isElement = preg_match('/^\/api\/movie\/\d+$/', $this->getPath());
 
-        if (!$isCollection && !$isElement) {
-            throw new \Exception('Invalid request path.', 501);
-        }
         if ($isElement) {
-            preg_match('/^\/api\/movie\/(\d+)/', $this->getPath(), $matches);
+            preg_match('/^\/api\/movie\/(\d+)$/', $this->getPath(), $matches);
             $id = $matches[1];
         }
 
@@ -272,16 +268,16 @@ class Api
                     $query = [];
                     parse_str($this->getQuery(), $query);
 
-                    $response = $this->getDb()->getMovies($query);
+                    return $this->getDb()->getMovies($query);
                 }
                 elseif ($isElement) {
-                    $response = $this->getDb()->getMovie($id);
+                    return $this->getDb()->getMovie($id);
                 }
                 break;
 
             case 'POST':
                 if ($isCollection && $id = $this->getDb()->addMovie($this->getRequestData())) {
-                    $response = $this->getDb()->getMovie($id);
+                    return $this->getDb()->getMovie($id);
                 }
                 break;
 
@@ -291,18 +287,18 @@ class Api
                     && $this->isDataValid($this->getRequestData())
                     && $this->getDb()->updateMovie($id, $this->getRequestData())
                 ) {
-                    $response = $this->getDb()->getMovie($id);
+                    return $this->getDb()->getMovie($id);
                 }
                 break;
 
             case 'DELETE':
                 if ($isElement && $this->getDb()->removeMovie($id)) {
-                    $response = $this->getDb()->getMovie($id);
+                    return $this->getDb()->getMovie($id);
                 }
                 break;
         }
 
-        return $response;
+        throw new \Exception('Invalid request path.', 501);
     }
 
     /**
