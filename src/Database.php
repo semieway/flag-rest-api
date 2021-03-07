@@ -21,12 +21,19 @@ class Database
      */
     private \Exception $idException;
 
+    /**
+     * Internal exception.
+     * @var \Exception
+     */
+    private \Exception $internalException;
+
     public function __construct()
     {
         $parts = parse_url(getenv('DATABASE_URL'));
         $this->connection = new PDO("pgsql:host={$parts['host']};port={$parts['port']};dbname={$parts['dbname']}", $parts['user'], $parts['password'], [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
 
         $this->idException = new \Exception('Invalid identifier: id is invalid or not found.');
+        $this->internalException = new \Exception('Internal error. Something went wrong.');
     }
 
     /**
@@ -43,6 +50,14 @@ class Database
     public function getIdException(): \Exception
     {
         return $this->idException;
+    }
+
+    /**
+     * @return \Exception
+     */
+    public function getInternalException(): \Exception
+    {
+        return $this->internalException;
     }
 
     /**
@@ -72,13 +87,16 @@ class Database
         }
 
         $stmt = $this->getConnection()->prepare($query);
-        $stmt->execute(['id' => $id]);
+        $status = $stmt->execute(['id' => $id]);
         $movie = $stmt->fetch();
 
         $actors = $this->getMovieActors($id);
         $movie['actors'] = ($actors) ? $actors : [];
 
-        return $movie;
+        if ($status) {
+            return $movie;
+        }
+        throw $this->getInternalException();
     }
 
     /**
@@ -93,9 +111,12 @@ class Database
         if ($this->isMovieExist($id)) {
             $query = 'DELETE FROM movies WHERE id = :id';
             $stmt = $this->getConnection()->prepare($query);
-            $stmt->execute(['id' => $id]);
+            $success = $stmt->execute(['id' => $id]);
 
-            return boolval($stmt->fetch());
+            if ($success) {
+                return true;
+            }
+            throw $this->getInternalException();
         }
 
         throw $this->getIdException();
@@ -106,20 +127,21 @@ class Database
      *
      * @param array $data
      * @return int|bool
+     * @throws \Exception
      */
     public function addMovie(array $data)
     {
         $query = '
-            INSERT INTO movies AS m (m.title, m.year, m.genre_id, m.overview, m.runtime)
+            INSERT INTO movies (title, year, genre_id, overview, runtime)
             VALUES(
                 :title,
                 :year,  
                 (SELECT id FROM genres WHERE name = :genre),
                 :overview,
-                :runtime  
+                :runtime
         )';
         $stmt = $this->getConnection()->prepare($query);
-        $stmt->execute([
+        $success = $stmt->execute([
             'title' => $data['title'],
             'year' => $data['year'],
             'genre' => $data['genre'],
@@ -127,19 +149,23 @@ class Database
             'runtime' => $data['runtime']
         ]);
 
-        return ($stmt->fetch()) ? $this->getConnection()->lastInsertId() : false;
+        if ($success) {
+            return $this->getConnection()->lastInsertId();
+        }
+        throw $this->getInternalException();
     }
 
     /**
-     * Replaces movie in database.
+     * Updates movie in database.
      *
      * @param array $data
      * @return array|bool
+     * @throws \Exception
      */
-    public function replaceMovie(array $data): bool
+    public function updateMovie(array $data): bool
     {
         if (!$this->isMovieExist($data['id'])) {
-            return false;
+            throw $this->getIdException();
         }
 
         $query = '
@@ -152,7 +178,7 @@ class Database
             WHERE id = :id
         ';
         $stmt = $this->getConnection()->prepare($query);
-        $stmt->execute([
+        $success = $stmt->execute([
             'id' => $data['id'],
             'title' => $data['title'],
             'year' => $data['year'],
@@ -161,7 +187,10 @@ class Database
             'runtime' => $data['runtime']
         ]);
 
-        return $stmt->fetch();
+        if ($success) {
+            return $this->getMovie($data['id']);
+        }
+        throw $this->getInternalException();
     }
 
     /**
@@ -169,6 +198,7 @@ class Database
      *
      * @param array $options
      * @return array|false
+     * @throws \Exception
      */
     public function getMovies(array $options = [])
     {
@@ -190,18 +220,18 @@ class Database
             $query .= '
             INNER JOIN movie_actors AS m_a ON m.id = m_a.movie_id
             INNER JOIN actors AS a ON m_a.actor_id = a.id
-            WHERE LOWER(a.first_name||a.last_name) LIKE LOWER($1) 
+            WHERE LOWER(a.first_name||a.last_name) LIKE LOWER(:actor) 
             ';
-            $parameters[] = '%'.$options['actor'].'%';
+            $parameters['actor'] = '%'.$options['actor'].'%';
         }
 
         if ($options['genre']) {
             if ($options['actor']) {
-                $query .= 'AND g.name = $2 ';
+                $query .= 'AND g.name = :genre ';
             } else {
-                $query .= 'WHERE g.name = $1 ';
+                $query .= 'WHERE g.name = :genre ';
             }
-            $parameters[] = $options['genre'];
+            $parameters['genre'] = $options['genre'];
         }
 
         $query .= 'GROUP BY m.id, g.name ';
@@ -219,7 +249,10 @@ class Database
 
         // Execute query.
         $stmt = $this->getConnection()->prepare($query);
-        $stmt->execute($parameters);
+        $success = $stmt->execute($parameters);
+        if (!$success) {
+            throw $this->getInternalException();
+        }
         $movies = $stmt->fetchAll();
 
         // Get actors for every movie.
