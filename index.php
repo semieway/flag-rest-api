@@ -4,7 +4,8 @@ use App\Api;
 use App\Database;
 
 require_once 'vendor/autoload.php';
-
+var_dump($_SERVER['REQUEST_URI']);
+var_dump(getenv('DATABASE_URL'));
 // Route to API.
 if (preg_match('/^\/api\/.*/', $_SERVER['REQUEST_URI'])) {
     $db = new Database();
