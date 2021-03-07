@@ -29,9 +29,11 @@ class Database
 
     public function __construct()
     {
-        $parts = parse_url(getenv('DATABASE_URL'));
-        $this->connection = new PDO("pgsql:host={$parts['host']};port={$parts['port']};dbname={$parts['dbname']}", $parts['user'], $parts['password'], [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-
+        $this->connection = new PDO(
+            sprintf("pgsql:host=%s;port=%d;dbname=%s", getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME')),
+            getenv('DB_USER'),
+            getenv('DB_PASS'),
+            [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
         $this->idException = new \Exception('Invalid identifier: id is invalid or not found.');
         $this->internalException = new \Exception('Internal error. Something went wrong.');
     }
@@ -106,7 +108,7 @@ class Database
      * @return bool
      * @throws \Exception
      */
-    public function removeMovie(int $id)
+    public function removeMovie(int $id): bool
     {
         if ($this->isMovieExist($id)) {
             $query = 'DELETE FROM movies WHERE id = :id';
@@ -269,6 +271,7 @@ class Database
      *
      * @param int $id
      * @return array
+     * @throws \Exception
      */
     public function getMovieActors(int $id): array
     {
@@ -283,9 +286,12 @@ class Database
             WHERE m_a.movie_id = :id
             ';
         $stmt = $this->getConnection()->prepare($query);
-        $stmt->execute(['id' => $id]);
+        $success = $stmt->execute(['id' => $id]);
 
-        return $stmt->fetchAll();
+        if ($success) {
+            return $stmt->fetchAll();
+        }
+        throw $this->getInternalException();
     }
 
     /**
