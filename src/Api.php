@@ -162,11 +162,18 @@ class Api
     }
 
     /**
-     * @param bool $success
+     * @param int $statusCode
      */
-    public function setSuccess(bool $success): void
+    public function setSuccess(int $statusCode): void
     {
-        $this->success = $success;
+        if (in_array($statusCode, [
+            200,
+            201
+        ])) {
+            $this->success = true;
+        } else {
+            $this->success = false;
+        }
     }
 
     /**
@@ -236,7 +243,7 @@ class Api
         try {
             $body = $this->generateResponse();
         } catch (\Exception $e) {
-            $this->setSuccess(false);
+            $this->setSuccess($e->getCode());
             $this->setStatusCode($e->getCode());
             $this->setStatusMessage($e->getMessage());
         }
@@ -298,7 +305,7 @@ class Api
 
             case 'DELETE':
                 if ($isElement && $this->getDb()->removeMovie($id)) {
-                    return $this->getDb()->getMovie($id);
+                    throw new \Exception('The item was deleted successfully.', 200);
                 }
                 break;
         }

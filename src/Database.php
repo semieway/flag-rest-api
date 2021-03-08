@@ -193,7 +193,6 @@ class Database
         $query = 'UPDATE movies SET '
             . implode(', ', $values)
             . ' WHERE id = :id';
-        var_dump($query);
         $stmt = $this->getConnection()->prepare($query);
         $data['id'] = $id;
         $success = $stmt->execute($data);
