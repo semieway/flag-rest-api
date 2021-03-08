@@ -166,6 +166,7 @@ class Database
             if ($success) {
                 return $this->getConnection()->lastInsertId();
             }
+            return false;
         } catch (\PDOException $e) {
             throw $this->getInternalException();
         }
@@ -213,6 +214,7 @@ class Database
             if ($stmt->execute($data)) {
                 return true;
             }
+            return false;
         } catch (\PDOException $e) {
             throw $this->getInternalException();
         }
@@ -242,11 +244,11 @@ class Database
 
         // Apply filters and sorting.
         if ($options['actor']) {
-            $query .= '
+            $query .= "
             INNER JOIN movie_actors AS m_a ON m.id = m_a.movie_id
             INNER JOIN actors AS a ON m_a.actor_id = a.id
-            WHERE LOWER(a.first_name||a.last_name) LIKE LOWER(:actor) 
-            ';
+            WHERE LOWER(concat_ws(' ', a.first_name, a.last_name)) LIKE LOWER(:actor) 
+            ";
             $parameters['actor'] = '%'.$options['actor'].'%';
         }
 
