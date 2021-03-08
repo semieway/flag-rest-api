@@ -315,6 +315,8 @@ class Api
                 }
                 break;
         }
+
+        return [];
     }
 
     /**
