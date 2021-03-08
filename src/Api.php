@@ -287,8 +287,9 @@ class Api
                 break;
 
             case 'POST':
-                if ($isCollection && $id = $this->getDb()->addMovie($this->getRequestData())) {
-                    var_dump($id);
+                if ($isCollection
+                    && $this->isDataValid($this->getRequestData())
+                    && $id = $this->getDb()->addMovie($this->getRequestData())) {
                     return $this->getDb()->getMovie($id);
                 }
                 break;
