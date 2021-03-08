@@ -261,6 +261,7 @@ class Api
      */
     public function generateResponse(): array
     {
+        // Check if the requested url is valid.
         $isCollection = preg_match('/^\/api\/movies$/', $this->getPath());
         $isElement = preg_match('/^\/api\/movie\/\d+$/', $this->getPath());
 

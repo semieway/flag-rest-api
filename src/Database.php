@@ -30,10 +30,11 @@ class Database
     public function __construct()
     {
         try {
+            // Construct db connection with heroku env variables.
             $this->connection = new PDO(
-                sprintf("pgsql:host=%s;port=%d;dbname=%s", 'ec2-54-155-35-88.eu-west-1.compute.amazonaws.com', 5432, 'dap7ipef7t9u6l'),
-                'enwrmqswzbcbfz',
-                '2ae627605e9eed085993ab47090b2e1a1f6b5204300fbd776c93c2763222b05a',
+                sprintf("pgsql:host=%s;port=%d;dbname=%s", getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME')),
+                getenv('DB_USER'),
+                getenv('DB_PASS'),
                 [
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
@@ -107,6 +108,8 @@ class Database
 
                 return $movie;
             }
+            return [];
+
         } catch (\PDOException $e) {
             throw $this->getInternalException();
         }
@@ -167,6 +170,7 @@ class Database
                 return $this->getConnection()->lastInsertId();
             }
             return false;
+
         } catch (\PDOException $e) {
             throw $this->getInternalException();
         }

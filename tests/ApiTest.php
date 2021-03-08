@@ -24,6 +24,11 @@ class ApiTest extends TestCase
         }
     }
 
+    /**
+     * POST movie test.
+     *
+     * @return mixed
+     */
     public function testMovieCanBePosted()
     {
         try {
@@ -49,6 +54,9 @@ class ApiTest extends TestCase
     }
 
     /**
+     * GET movie by id.
+     * Uses the same item from previous test.
+     *
      * @depends testMovieCanBePosted
      * @param array $movie
      * @return array
@@ -75,6 +83,8 @@ class ApiTest extends TestCase
     }
 
     /**
+     * PUT movie test.
+     *
      * @depends testGetMovieWithId
      * @param array $movie
      * @return array
@@ -99,6 +109,9 @@ class ApiTest extends TestCase
     }
 
     /**
+     * DELETE movie test.
+     * Removes the item that was created in the previous test.
+     *
      * @depends testMovieCabBeChanged
      * @param array $movie
      */
@@ -117,6 +130,9 @@ class ApiTest extends TestCase
         $this->assertEquals('The item was deleted successfully.', $response['status']['status_message']);
     }
 
+    /**
+     * GET movie test with non-existed identifier.
+     */
     public function test404MovieNotFound()
     {
         try {
@@ -130,6 +146,9 @@ class ApiTest extends TestCase
         $this->assertEquals(404, $response['status']['status_code']);
     }
 
+    /**
+     * POST movie test with invalid request data.
+     */
     public function testMovieInvalidRequestData()
     {
         try {
