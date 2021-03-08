@@ -29,11 +29,18 @@ class Database
 
     public function __construct()
     {
-        $this->connection = new PDO(
-            sprintf("pgsql:host=%s;port=%d;dbname=%s", getenv('DB_HOST'), getenv('DB_PORT'), getenv('DB_NAME')),
-            getenv('DB_USER'),
-            getenv('DB_PASS'),
-            [PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+        try {
+            $this->connection = new PDO(
+                sprintf("pgsql:host=%s;port=%d;dbname=%s", 'ec2-54-155-35-88.eu-west-1.compute.amazonaws.com', 5432, 'dap7ipef7t9u6l'),
+                'enwrmqswzbcbfz',
+                '2ae627605e9eed085993ab47090b2e1a1f6b5204300fbd776c93c2763222b05a',
+                [
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+                ]);
+        } catch (\PDOException $e) {
+            throw $this->getInternalException();
+        }
 
         $this->idException = new \Exception('Invalid identifier: id is invalid or not found.', 404);
         $this->internalException = new \Exception('Internal error, something went wrong. Please check your request parameters.', 500);
@@ -90,16 +97,19 @@ class Database
         }
 
         $stmt = $this->getConnection()->prepare($query);
-        $status = $stmt->execute(['id' => $id]);
-        $movie = $stmt->fetch();
+        try {
+            $success = $stmt->execute(['id' => $id]);
+            if ($success) {
+                $movie = $stmt->fetch();
 
-        $actors = $this->getMovieActors($id);
-        $movie['actors'] = ($actors) ? $actors : [];
+                $actors = $this->getMovieActors($id);
+                $movie['actors'] = ($actors) ? $actors : [];
 
-        if ($status) {
-            return $movie;
+                return $movie;
+            }
+        } catch (\PDOException $e) {
+            throw $this->getInternalException();
         }
-        throw $this->getInternalException();
     }
 
     /**
@@ -114,12 +124,13 @@ class Database
         if ($this->isMovieExist($id)) {
             $query = 'DELETE FROM movies WHERE id = :id';
             $stmt = $this->getConnection()->prepare($query);
-            $success = $stmt->execute(['id' => $id]);
-
-            if ($success) {
-                return true;
+            try {
+                if ($stmt->execute(['id' => $id])) {
+                    return true;
+                }
+            } catch (\PDOException $e) {
+                throw $this->getInternalException();
             }
-            throw $this->getInternalException();
         }
 
         throw $this->getIdException();
@@ -144,18 +155,20 @@ class Database
                 :runtime
         )';
         $stmt = $this->getConnection()->prepare($query);
-        $success = $stmt->execute([
-            'title' => $data['title'],
-            'year' => $data['year'],
-            'genre' => $data['genre'],
-            'overview' => $data['overview'],
-            'runtime' => $data['runtime']
-        ]);
-
-        if ($success) {
-            return $this->getConnection()->lastInsertId();
+        try {
+            $success = $stmt->execute([
+                'title' => $data['title'],
+                'year' => $data['year'],
+                'genre' => $data['genre'],
+                'overview' => $data['overview'],
+                'runtime' => $data['runtime']
+            ]);
+            if ($success) {
+                return $this->getConnection()->lastInsertId();
+            }
+        } catch (\PDOException $e) {
+            throw $this->getInternalException();
         }
-        throw $this->getInternalException();
     }
 
     /**
@@ -173,6 +186,7 @@ class Database
             throw $this->getIdException();
         }
 
+        // Do not keep data for PUT method.
         if (!$keepData) {
             $movie = $this->getMovie($id);
             $data = array_merge(array_fill_keys(array_keys($movie), null), $data);
@@ -195,12 +209,13 @@ class Database
             . ' WHERE id = :id';
         $stmt = $this->getConnection()->prepare($query);
         $data['id'] = $id;
-        $success = $stmt->execute($data);
-
-        if ($success) {
-            return true;
+        try {
+            if ($stmt->execute($data)) {
+                return true;
+            }
+        } catch (\PDOException $e) {
+            throw $this->getInternalException();
         }
-        throw $this->getInternalException();
     }
 
     /**
@@ -259,19 +274,22 @@ class Database
 
         // Execute query.
         $stmt = $this->getConnection()->prepare($query);
-        $success = $stmt->execute($parameters);
-        if (!$success) {
+        try {
+            $status = $stmt->execute($parameters);
+            if ($status) {
+                $movies = $stmt->fetchAll();
+
+                foreach ($movies as &$movie) {
+                    $actors = $this->getMovieActors($movie['id']);
+                    $movie['actors'] = ($actors) ? $actors : [];
+                }
+
+                return $movies;
+            }
+            return [];
+        } catch (\PDOException $e) {
             throw $this->getInternalException();
         }
-        $movies = $stmt->fetchAll();
-
-        // Get actors for every movie.
-        foreach ($movies as &$movie) {
-            $actors = $this->getMovieActors($movie['id']);
-            $movie['actors'] = ($actors) ? $actors : [];
-        }
-
-        return $movies;
     }
 
     /**
@@ -294,12 +312,15 @@ class Database
             WHERE m_a.movie_id = :id
             ';
         $stmt = $this->getConnection()->prepare($query);
-        $success = $stmt->execute(['id' => $id]);
-
-        if ($success) {
-            return $stmt->fetchAll();
+        try {
+            $success = $stmt->execute(['id' => $id]);
+            if ($success) {
+                return $stmt->fetchAll();
+            }
+            return [];
+        } catch (\PDOException $e) {
+            throw $this->getInternalException();
         }
-        throw $this->getInternalException();
     }
 
     /**
@@ -307,14 +328,21 @@ class Database
      *
      * @param int $id
      * @return bool
+     * @throws \Exception
      */
     public function isMovieExist(int $id): bool
     {
         $query = 'SELECT id FROM movies WHERE id = :id';
         $stmt = $this->getConnection()->prepare($query);
-        $stmt->execute(['id' => $id]);
-
-        return boolval($stmt->fetch());
+        try {
+            $status = $stmt->execute(['id' => $id]);
+            if ($status) {
+                return boolval($stmt->fetch());
+            }
+            return false;
+        } catch (\PDOException $e) {
+            throw $this->getInternalException();
+        }
     }
 
 }

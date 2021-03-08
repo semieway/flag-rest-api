@@ -264,6 +264,10 @@ class Api
         $isCollection = preg_match('/^\/api\/movies$/', $this->getPath());
         $isElement = preg_match('/^\/api\/movie\/\d+$/', $this->getPath());
 
+        if (!$isCollection && !$isElement) {
+            throw new \Exception('Invalid request path.', 501);
+        }
+
         if ($isElement) {
             preg_match('/^\/api\/movie\/(\d+)$/', $this->getPath(), $matches);
             $id = $matches[1];
@@ -284,6 +288,7 @@ class Api
 
             case 'POST':
                 if ($isCollection && $id = $this->getDb()->addMovie($this->getRequestData())) {
+                    var_dump($id);
                     return $this->getDb()->getMovie($id);
                 }
                 break;
@@ -309,8 +314,6 @@ class Api
                 }
                 break;
         }
-
-        throw new \Exception('Invalid request path.', 501);
     }
 
     /**
